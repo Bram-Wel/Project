@@ -1,16 +1,7 @@
 from tb_rest_client.rest_client_pe import RestClientPE
 from tb_rest_client.rest import ApiException
-from dotenv import load_dotenv
 import json
-import os
-
-# Load environment variables
-load_dotenv()
-THINGSBOARD_SERVER = os.getenv('THINGSBOARD_URL')
-# ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
-PROVISION_KEY = os.getenv('PROVISION_KEY')
-PROVISION_SECRET = os.getenv('PROVISION_SECRET')
-JWT_TOKEN = os.getenv('JWT_TOKEN')
+from config import THINGSBOARD_SERVER, JWT_TOKEN
 
 def get_rest_client():
     rest_client = RestClientPE(base_url=THINGSBOARD_SERVER)

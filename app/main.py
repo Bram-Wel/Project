@@ -1,7 +1,7 @@
 from tb_rest_client.rest_client_pe import RestClientPE
 from tb_rest_client.rest import ApiException
 import json
-from config import THINGSBOARD_SERVER, JWT_TOKEN
+from app.config import THINGSBOARD_SERVER, JWT_TOKEN
 
 def get_rest_client():
     rest_client = RestClientPE(base_url=THINGSBOARD_SERVER)

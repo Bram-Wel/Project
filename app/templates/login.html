@@ -12,16 +12,12 @@
         <form method="POST" action="{{ url_for('main.login') }}">
             {{ form.hidden_tag() }}
             <div class="form-group">
-                {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control") }}
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control") }}
             </div>
             <div class="form-group">
                 {{ form.password.label(class="form-label") }}
                 {{ form.password(class="form-control") }}
-            </div>
-            <div class="form-group form-check">
-                {{ form.remember_me(class="form-check-input") }}
-                {{ form.remember_me.label(class="form-check-label") }}
             </div>
             <button type="submit" class="btn btn-primary">Login</button>
         </form>

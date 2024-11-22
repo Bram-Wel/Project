@@ -14,7 +14,7 @@ class DeviceForm(FlaskForm):
     device_description = StringField('Device Description')
     submit = SubmitField('Add Device')
 
-    def __init__(self, formdata=..., **kwargs):
+    def __init__(self, formdata, **kwargs):
         super().__init__(formdata, **kwargs)
         self.device_type.data = 'default'
 

@@ -35,19 +35,21 @@ with get_rest_client() as rest_client:
         logout_user()
         return redirect(url_for('main.login'))
 
-    @main.route('/device', methods=['POST'])
+    @main.route('/device', methods=['GET', 'POST'])
     @login_required
     def create_device():
-        form = DeviceForm()
+        form = DeviceForm(request.form)
         if form.validate_on_submit():
             data = {
                 "name": form.device_name.data,
                 "type": form.device_type.data,
                 "label": form.device_label.data,
+                "customer_id": current_user.get_dynamic_attribute('_customer_id').id,
                 "additionalInfo": {
                     "description": form.device_description.data
                 }
             }
+            print(data)
             try:
                 device = rest_client.save_device(data)
                 return jsonify(device)

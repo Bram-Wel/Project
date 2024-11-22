@@ -37,7 +37,7 @@ class User(UserMixin, db.Model):
                     self.role = user_instance.authority  # Use authority for role
                     self.password = password  # Use provided password
                     self.dynamic_attributes = {
-                        key: json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+                        key: self.custom_serialize(value)
                         for key, value in user_instance.__dict__.items()
                         if key not in ['_id', 'id', 'email', 'authority', 'password']
                     }
@@ -62,7 +62,7 @@ class User(UserMixin, db.Model):
                                 password='1234'
                             )
                             new_user.dynamic_attributes = {
-                                key: json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+                                key: new_user.custom_serialize(value)
                                 for key, value in user_instance.__dict__.items()
                                 if key not in ['_id', 'id', 'email', 'authority', 'password']
                             }
@@ -91,12 +91,47 @@ class User(UserMixin, db.Model):
         db.session.commit()
 
     def set_dynamic_attribute(self, key, value):
-        self.dynamic_attributes[key] = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+        self.dynamic_attributes[key] = self.custom_serialize(value)
         self.save_to_db()
 
     def get_dynamic_attribute(self, key):
         value = self.dynamic_attributes.get(key, None)
+        return self.custom_deserialize(value)
+
+    def custom_serialize(self, value):
+        if isinstance(value, (dict, list)):
+            return json.dumps(value)
+        elif isinstance(value, (int, float, str, bool)):
+            return json.dumps(value)
+        else:
+            if value is None:
+                return json.dumps(None)
+            # Handle custom objects
+            serialized_value = {
+                "__class__": value.__class__.__name__,
+                "__module__": value.__class__.__module__
+            }
+            if value.__dict__:
+                serialized_value["__value__"] = value.__dict__
+            return json.dumps(serialized_value)
+
+    def custom_deserialize(self, value):
+        if value is None:
+            return None
         try:
-            return json.loads(value)
+            data = json.loads(value)
+            if isinstance(data, dict) and "__class__" in data and "__module__" in data and "__value__" in data:
+                # Handle custom objects
+                class_name = data["__class__"]
+                module_name = data["__module__"]
+                class_value = data["__value__"]
+                # Dynamically import the module and get the class
+                module = __import__(module_name, fromlist=[class_name])
+                cls = getattr(module, class_name)
+                # Create an instance of the class and update its __dict__
+                obj = cls.__new__(cls)
+                obj.__dict__.update(class_value)
+                return obj
+            return data
         except (TypeError, json.JSONDecodeError):
             return value

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Create User{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Create User</h2>
+    <form method="POST" action="{{ url_for('main.create_user') }}">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+            {{ form.id.label }}<br>
+            {{ form.id(size=32, class_="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.username.label }}<br>
+            {{ form.username(size=32, class_="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.role.label }}<br>
+            {{ form.role(size=32, class_="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.password.label }}<br>
+            {{ form.password(size=32, class_="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.submit(class_="btn btn-primary") }}
+        </div>
+    </form>
+</div>
+{% endblock %}

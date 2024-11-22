@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Device{% endblock %}
+
+{% block content %}
+<h1>Device Information</h1>
+<p>This is the device content.</p>
+
+<!-- Flash messages-->
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flashes">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+{% endblock %}

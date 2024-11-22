@@ -47,7 +47,7 @@ class User(UserMixin, db.Model):
                 raise Exception(f"API Exception: {error_details.get('message')}")
 
     @staticmethod
-    def get(username):
+    def get(username, password=None):
         try:
             user = User.query.filter_by(username=username).first()
             if user:
@@ -59,7 +59,7 @@ class User(UserMixin, db.Model):
                         if user_instance:
                             new_user = User(
                                 username=user_instance.email,  # Use email as username
-                                password='1234'
+                                password=password if password else 'Test123!'  # Use default password if not provided
                             )
                             new_user.dynamic_attributes = {
                                 key: new_user.custom_serialize(value)

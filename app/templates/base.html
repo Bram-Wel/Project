@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,17 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}My App{% endblock %}</title>
     <!-- Add your CSS files here -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('main.dashboard') }}">Home</a></li>
                 {% if current_user.is_authenticated %}
-                    <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                    <li><a href="{{ url_for('main.logout') }}">Logout</a></li>
                 {% else %}
-                    <li><a href="{{ url_for('login') }}">Login</a></li>
+                    <li><a href="{{ url_for('main.login') }}">Login</a></li>
                 {% endif %}
             </ul>
         </nav>
@@ -25,7 +25,7 @@
         {% block content %}{% endblock %}
     </main>
     <footer>
-        <p>&copy; 2023 My App</p>
+        <p>&copy; NMSIOT 2024</p>
     </footer>
 </body>
 </html>

@@ -79,7 +79,8 @@ with get_rest_client() as rest_client:
             })
         except Exception as e:
             return jsonify({"error": str(e)})
-        
+
+    @main.route('/')    
     @main.route('/dashboard')
     @login_required
     def dashboard():

@@ -3,14 +3,14 @@ from flask import Blueprint, request, jsonify, url_for, redirect, flash, render_
 from flask_login import login_user, logout_user, login_required, current_user
 import json
 from tb_rest_client.rest import ApiException
-from app.main import get_rest_client, get_user_tb
+from app.main import get_rest_client, get_user_tb, BRAM
 from app.forms import LoginForm, DeviceForm, CreateUserForm
 from app.models import User
 import secrets
 
 main = Blueprint('main', __name__)
 
-with get_rest_client() as rest_client:
+with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
     @main.route('/')
     @main.route('/login', methods=['GET', 'POST'])
     def login():
@@ -105,7 +105,7 @@ with get_rest_client() as rest_client:
             except Exception as e:
                 return jsonify({"error": str(e)}), 400
 
-            with get_rest_client() as rest_client:
+            with get_rest_client(username=BRAM['email'], password=BRAM['password']) as rest_client:
                 try:
                     if role == "CUSTOMER_ADMIN":
                         customer = {

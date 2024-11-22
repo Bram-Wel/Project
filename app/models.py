@@ -1,6 +1,6 @@
 from flask_login import UserMixin
 from tb_rest_client.rest import ApiException
-from app.main import get_rest_client, get_user_tb
+from app.main import get_rest_client, get_user_tb, BRAM
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
 
@@ -28,7 +28,7 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
         
     def __init__(self, username, password):
-        with get_rest_client() as rest_client:
+        with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
             try:
                 user_instance = get_user_tb(username, rest_client)
                 if user_instance:
@@ -53,7 +53,7 @@ class User(UserMixin, db.Model):
             if user:
                 return user
             else:
-                with get_rest_client() as rest_client:
+                with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                     try:
                         user_instance = get_user_tb(username, rest_client)
                         if user_instance:

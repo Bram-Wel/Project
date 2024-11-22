@@ -1,12 +1,15 @@
-from tb_rest_client.rest_client_pe import RestClientPE
+from tb_rest_client.rest_client_pe import RestClientPE, Device
 from tb_rest_client.rest import ApiException
 import json
-from app.config import THINGSBOARD_SERVER, JWT_TOKEN
+from app.config import THINGSBOARD_SERVER, BRAM
+import requests
 
-def get_rest_client():
+def get_rest_client(username, password):
+    tokens = authenticate(username, password)
     rest_client = RestClientPE(base_url=THINGSBOARD_SERVER)
     # Login to the server with JWT token
-    rest_client.token_login(JWT_TOKEN)
+    rest_client.token_login(tokens['token'])
+    rest_client.token_info = tokens  # Update token_info with the tokens value
     return rest_client
 
 def get_user_tb(username, rest_client):
@@ -24,9 +27,31 @@ def get_user_tb(username, rest_client):
             page += 1
     return None
 
+def authenticate(username, password):
+    url = 'https://thingsboard.cloud/api/auth/login'
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'username': username,
+        'password': password
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+    if response.status_code == 200:
+        return response.json()  # Return the token object directly
+    else:
+        raise Exception(f"Authentication failed: {response.json()}")
+
 if __name__ == '__main__':
+    # Example usage
+    tokens = authenticate('osura.bramwel@students.jkuat.ac.ke', 'Bramwel1!')
+    access_token = tokens['token']
+    refresh_token = tokens['refreshToken']
+
     # Create a REST client
-    with get_rest_client() as rest_client:
+    with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
         try:
             # Create a new device
             device = rest_client.save_device({
@@ -37,6 +62,8 @@ if __name__ == '__main__':
                     "description": "Test Device for the Project"
                 }
             })
+            Device()
+            rest_client.token_info.update()
             print(f"Device created: {device}")
 
         except ApiException as e:

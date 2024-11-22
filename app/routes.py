@@ -3,17 +3,20 @@ from flask import Blueprint, request, jsonify, url_for, redirect, flash, render_
 from flask_login import login_user, logout_user, login_required, current_user
 import json
 from tb_rest_client.rest import ApiException
-from app.main import get_rest_client, get_user_tb, BRAM
+from app.main import get_rest_client, get_user_tb_v2, BRAM
 from app.forms import LoginForm, DeviceForm, CreateUserForm
 from app.models import User
-import secrets
 
 main = Blueprint('main', __name__)
+
+# Define a private variable to store the password
+_private_niggle = None
 
 with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
     @main.route('/')
     @main.route('/login', methods=['GET', 'POST'])
     def login():
+        global _private_niggle  # Declare the variable as global to modify it
         if current_user.is_authenticated:
             return redirect(url_for('main.dashboard'))
         
@@ -21,9 +24,10 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
         if form.validate_on_submit():
             username = form.email.data
             password = form.password.data
-            user = User.get(username)
+            user = User.get(username, password)
             if user and user.verify_password(password):
                 login_user(user)
+                _private_niggle = password  # Save the password in the private variable
                 return redirect(url_for('main.dashboard'))
             else:
                 flash('Invalid password or expired token')
@@ -44,43 +48,27 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 "name": form.device_name.data,
                 "type": form.device_type.data,
                 "label": form.device_label.data,
-                "customer_id": current_user.get_dynamic_attribute('_customer_id').id,
+                #"customer_id": current_user.get_dynamic_attribute('_customer_id').id,
                 "additionalInfo": {
                     "description": form.device_description.data
                 }
             }
-            print(data)
             try:
-                device = rest_client.save_device(data)
-                return jsonify(device)
+                device_user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+                device = client.save_device(data)
+                access_token = client.get_device_credentials_by_device_id(device.id)
+                client.logout()
+                flash(f'Created {device.name} Successfully. Access-Token = {access_token.credentials_id}','success')
+                return redirect(url_for('main.dashboard'))
             except ApiException as e:
                 error_body = e.body.decode('utf-8')
                 error_details = json.loads(error_body)
-                return jsonify({
-                    "status": e.status,
-                    "reason": e.reason,
-                    "message": error_details.get('message')
-                })
+                flash(f"Error: {error_details.get('message')}", 'error')
+                return redirect(url_for('main.create_device'))
             except Exception as e:
-                return jsonify({"error": str(e)}), 500
+                flash(f"Error: {str(e)}", 'error')
+                return redirect(url_for('main.create_device'), 'error')
         return render_template('device.html', title='Add Device', form=form)
-
-    @main.route('/device/<device_id>', methods=['GET'])
-    @login_required
-    def get_device(device_id):
-        try:
-            device = rest_client.get_device_by_id(device_id)
-            return jsonify(device)
-        except ApiException as e:
-            error_body = e.body.decode('utf-8')
-            error_details = json.loads(error_body)
-            return jsonify({
-                "status": e.status,
-                "reason": e.reason,
-                "message": error_details.get('message')
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)})
 
     @main.route('/')    
     @main.route('/dashboard')
@@ -131,3 +119,7 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
             return jsonify({"message": "User created successfully"}), 201
 
         return render_template('create_user.html', title='Create User', form=form)
+
+ # Get the niggle   
+def get_private_niggle():
+    return _private_niggle

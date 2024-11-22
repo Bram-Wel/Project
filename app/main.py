@@ -15,7 +15,7 @@ def get_rest_client(username, password):
 def get_user_tb(username, rest_client):
     user_page = rest_client.get_user_users(1, 1, username)
     if user_page.total_elements != 0:
-        page = 1
+        page = 0
         page_size = 1
         while True:
             user_page = rest_client.get_user_users(page, page_size)

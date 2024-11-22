@@ -6,16 +6,28 @@
 <h1>Device Information</h1>
 <p>This is the device content.</p>
 
-<!-- Flash messages-->
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="flashes">
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
+<!-- Create Device Form -->
+<div class="container mt-4">
+    <h2>Create Device</h2>
+    <form method="POST" action="{{ url_for('main.create_device') }}">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+            {{ form.device_name.label(class="form-label") }}
+            {{ form.device_name(class="form-control") }}
         </div>
-    {% endif %}
-{% endwith %}
+        <div class="form-group">
+            {{ form.device_type.label(class="form-label") }}
+            {{ form.device_type(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.device_label.label(class="form-label") }}
+            {{ form.device_label(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.device_description.label(class="form-label") }}
+            {{ form.device_description(class="form-control") }}
+        </div>
+        <button type="submit" class="btn btn-primary">Create Device</button>
+    </form>
+</div>
 {% endblock %}

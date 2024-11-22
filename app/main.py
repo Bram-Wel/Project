@@ -44,18 +44,18 @@ def authenticate(username, password):
     else:
         raise Exception(f"Authentication failed: {response.json()}")
 
-def rest_user_tb_v2(username, password, return_client=False):
-    with get_rest_client(username, password) as rest_client:
-        user = rest_client.get_user()
+def get_user_tb_v2(username, password, return_client=False):
+    with get_rest_client(username, password) as rst_client:
+        user = rst_client.get_user()
         if return_client:
-            return user, rest_client
+            return user, rst_client
         else:
-            rest_client.logout()
+            rst_client.logout()
             return user
 
 if __name__ == '__main__':
     # Example usage
-    tokens = authenticate('osura.bramwel@students.jkuat.ac.ke', 'Bramwel1!')
+    tokens = authenticate(BRAM['email'], BRAM['password'])
     access_token = tokens['token']
     refresh_token = tokens['refreshToken']
 
@@ -83,5 +83,5 @@ if __name__ == '__main__':
             rest_client.logout() if rest_client.logged_in else None
 
     # Example usage of rest_user_tb_v2
-    user = rest_user_tb_v2('osura.bramwel@students.jkuat.ac.ke', 'Bramwel1!')
+    user = get_user_tb_v2('osura.bramwel@students.jkuat.ac.ke', 'Bramwel1!')
     print(f"User: {user}")

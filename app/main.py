@@ -9,7 +9,7 @@ def get_rest_client(username, password):
     rest_client = RestClientPE(base_url=THINGSBOARD_SERVER)
     # Login to the server with JWT token
     rest_client.token_login(tokens['token'])
-    rest_client.token_info = tokens  # Update token_info with the tokens value
+    rest_client.token_info.update(tokens)  # Update token_info with the tokens value
     return rest_client
 
 def get_user_tb(username, rest_client):

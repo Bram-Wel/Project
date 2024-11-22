@@ -9,6 +9,21 @@ def get_rest_client():
     rest_client.token_login(JWT_TOKEN)
     return rest_client
 
+def get_user_tb(username, rest_client):
+    user_page = rest_client.get_user_users(1, 1, username)
+    if user_page.total_elements != 0:
+        page = 1
+        page_size = 1
+        while True:
+            user_page = rest_client.get_user_users(page, page_size)
+            user = user_page.data[0] if user_page.data else None
+            if user and user.email == username:
+                return user
+            if not user_page.has_next:
+                break
+            page += 1
+    return None
+
 if __name__ == '__main__':
     # Create a REST client
     with get_rest_client() as rest_client:

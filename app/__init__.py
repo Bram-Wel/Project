@@ -3,6 +3,7 @@ from flask import Flask
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 import secrets
+import logging
 
 db = SQLAlchemy()
 
@@ -11,6 +12,9 @@ def create_app():
 
     # Generate a secret key
     app.secret_key = secrets.token_hex(32)
+
+    # Configure logging level to debug
+    logging.basicConfig(level=logging.DEBUG)
 
     # Initialise SQLAlchemy
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Update with your database URI

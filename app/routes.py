@@ -6,6 +6,7 @@ from tb_rest_client.rest import ApiException
 from app.main import get_rest_client, get_user_tb_v2, BRAM
 from app.forms import LoginForm, DeviceForm, CreateUserForm
 from app.models import User
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 
@@ -70,11 +71,47 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 return redirect(url_for('main.create_device'), 'error')
         return render_template('device.html', title='Add Device', form=form)
 
+    def chunk_list(lst, chunk_size):
+        """Yield successive chunks from lst."""
+        for i in range(0, len(lst), chunk_size):
+            yield lst[i:i + chunk_size]
+
     @main.route('/')    
     @main.route('/dashboard')
     @login_required
     def dashboard():
-        return render_template('dashboard.html', title='Dashboard')
+        try:
+            user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+            devices = []
+            page_data = client.get_user_devices(30, 0)
+            devices.extend(page_data.data)
+            while page_data.has_next:
+                page_size, page = 30, 1
+                page_data = client.get_user_devices(page_size, page)
+                devices.extend(page_data.data)
+                page += 1
+
+            client.logout()
+            chunked_devices = list(chunk_list(devices, 3))
+            device_attributes = [
+                attr for attr in dir(devices[0])
+                if not callable(getattr(devices[0], attr)) 
+                and not attr.startswith("__")
+                and not attr.startswith("_")
+                and attr not in ["customer_id", "tenant_id", "device_profile_id", "swagger_types", "attribute_map", "discriminator"]
+                ]
+            for device in devices:
+                timestamp_seconds = device.created_time / 1000.0
+                device.created_time = datetime.fromtimestamp(timestamp_seconds)
+            return render_template('dashboard.html', title='Dashboard', devices=chunked_devices, user=user, device_attributes=device_attributes)
+        except ApiException as e:
+            error_body = e.body.decode('utf-8')
+            error_details = json.loads(error_body)
+            flash(f"Error: {error_details.get('message')}", 'error')
+            return redirect(url_for('main.create_device'))
+        except Exception as e:
+            flash(f"Error: {str(e)}", 'error')
+            return redirect(url_for('main.create_device'))
 
     @main.route('/create_user', methods=['GET', 'POST'])
     def create_user():

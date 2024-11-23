@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, url_for, redirect, flash, render_template
 from flask_login import login_user, logout_user, login_required, current_user
 import json
+from tb_rest_client.rest_client_pe import Device
 from tb_rest_client.rest import ApiException
 from app.main import get_rest_client, get_user_tb_v2, BRAM
 from app.forms import LoginForm, DeviceForm, CreateUserForm
@@ -56,7 +57,16 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
             }
             try:
                 device_user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
-                device = client.save_device(data)
+                if data['type'] == 'default':
+                    data['device_profile_id'] = client.get_default_device_profile_info().id
+                device = Device(
+                    name=data['name'],
+                    type=data['type'],
+                    label=data['label'],
+                    device_profile_id=data['device_profile_id'],
+                    additional_info=data['additionalInfo']
+                )
+                device = client.save_device(device)
                 access_token = client.get_device_credentials_by_device_id(device.id)
                 client.logout()
                 flash(f'Created {device.name} Successfully. Access-Token = {access_token.credentials_id}','success')
@@ -93,13 +103,16 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
 
             client.logout()
             chunked_devices = list(chunk_list(devices, 3))
-            device_attributes = [
-                attr for attr in dir(devices[0])
-                if not callable(getattr(devices[0], attr)) 
-                and not attr.startswith("__")
-                and not attr.startswith("_")
-                and attr not in ["customer_id", "tenant_id", "device_profile_id", "swagger_types", "attribute_map", "discriminator"]
+            if devices:
+                device_attributes = [
+                    attr for attr in dir(devices[0])
+                    if not callable(getattr(devices[0], attr)) 
+                    and not attr.startswith("__")
+                    and not attr.startswith("_")
+                    and attr not in ["customer_id", "tenant_id", "device_profile_id", "swagger_types", "attribute_map", "discriminator"]
                 ]
+            else:
+                device_attributes = []
             for device in devices:
                 timestamp_seconds = device.created_time / 1000.0
                 device.created_time = datetime.fromtimestamp(timestamp_seconds)

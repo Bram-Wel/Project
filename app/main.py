@@ -18,7 +18,7 @@ def get_user_tb(username, rest_client):
         page = 0
         page_size = 1
         while True:
-            user_page = rest_client.get_user_users(page, page_size)
+            user_page = rest_client.get_user_users(page_size, page)
             user = user_page.data[0] if user_page.data else None
             if user and user.email == username:
                 return user

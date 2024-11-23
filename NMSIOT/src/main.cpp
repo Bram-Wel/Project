@@ -15,8 +15,8 @@
 #include <Shared_Attribute_Update.h>
 #include <ThingsBoard.h>
 
-constexpr char WIFI_SSID[] = "ECO TOURS AND TRAVEL";
-constexpr char WIFI_PASSWORD[] = "Eco_Safaris";
+constexpr char WIFI_SSID[] = "HUAWEI Y9 2019";
+constexpr char WIFI_PASSWORD[] = "12345678";
 
 // See https://thingsboard.io/docs/pe/getting-started-guides/helloworld/
 // to understand how to obtain an access token

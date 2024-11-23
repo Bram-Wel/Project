@@ -37,6 +37,10 @@
                                     {% endfor %}
                                 </div>
                                 <a href="#details-{{ device['id'].id }}" class="btn btn-outline-primary mt-2" data-toggle="collapse" aria-expanded="false" aria-controls="details-{{ device['id'].id }}">View Details</a>
+                                <form action="{{ url_for('main.delete_device') }}" method="post" class="mt-2">
+                                    <input type="hidden" name="device_id" value="{{ device['id'].id }}">
+                                    <button type="submit" class="btn btn-danger">Delete Device</button>
+                                </form>
                             </div>
                         </div>
                     </div>

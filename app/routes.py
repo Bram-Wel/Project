@@ -170,6 +170,25 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
 
         return render_template('create_user.html', title='Create User', form=form)
 
+    @main.route('/delete_device', methods=['POST'])
+    def delete_device():
+        device_id = request.form.get('device_id')
+        if device_id:
+            try:
+                user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+                client.delete_device(device_id)  # Delete the device using the device_id
+                client.logout()
+                flash('Device deleted successfully', 'info')
+            except ApiException as e:
+                error_body = e.body.decode('utf-8')
+                error_details = json.loads(error_body)
+                flash(f"Error: {error_details.get('message')}", 'error')
+            except Exception as e:
+                flash(f"Error: {str(e)}", 'error')
+        else:
+            flash('Device ID not provided', 'danger')
+        return redirect(url_for('main.dashboard'))
+
  # Get the niggle   
 def get_private_niggle():
     return _private_niggle

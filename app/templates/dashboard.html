@@ -1,82 +1,79 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dashboard{% endblock %}</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-</head>
-<body>
-    {% block content %}
+{% extends "base.html" %}
 
-    <div class="container">
-        <h1 class="mt-5">Dashboard</h1>
-        <a href="{{ url_for('main.create_user') }}" class="btn btn-primary mt-3">Create User</a>
-        <a href="{{ url_for('main.create_device') }}" class="btn btn-secondary mt-3 ml-2">Create Device</a>
-        
-        <!-- Display flash messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flashes">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-        
-        <div class="row mt-4">
-            <div class="col-12">
-                {% if devices %}
-                    {% for chunk in devices %}
-                    <div class="row">
-                        {% for device in chunk %}
-                        <div class="col-md-4">
-                            <div class="card mb-3 bg-light border-primary shadow-sm">
-                                <div class="card-body">
-                                    <h5 class="card-title text-primary">{{ device["name"] }}</h5>
-                                    <p class="card-text">Id: {{ device["id"].id }}</p>
-                                    <p class="card-text">Type: {{ device["type"] }}</p>
-                                    <p class="card-text">Version: {{ device["version"] }}</p>
-                                    <p class="card-text">Label: {{ device["label"] }}</p>
-                                    <p class="card-text">Created At: {{ device["created_time"] }}</p>
-                                    <div class="collapse" id="details-{{ device['id'].id }}">
-                                        {% for attr in device_attributes %}
-                                            {% if attr not in ["id", "type", "version", "label", "created_time"] %}
-                                                {% if attr == "additional_info" and device[attr] is not none %}
-                                                    {% for key, value in device[attr].items() %}
-                                                        <p class="card-text">{{ key|capitalize }}: {{ value }}</p>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <p class="card-text">{{ attr|capitalize }}: {{ device[attr] }}</p>
-                                                {% endif %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <h1 class="mt-5">Dashboard</h1>
+    <a href="{{ url_for('main.create_user') }}" class="btn btn-primary mt-3">Create User</a>
+    <a href="{{ url_for('main.create_device') }}" class="btn btn-secondary mt-3 ml-2">Create Device</a>
+    
+    <!-- Display flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flashes">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            {% if devices %}
+                {% for chunk in devices %}
+                <div class="row">
+                    {% for device in chunk %}
+                    <div class="col-md-4">
+                        <div class="card mb-3 bg-light border-primary shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title text-primary">{{ device["name"] }}</h5>
+                                <p class="card-text">Id: {{ device["id"].id }}</p>
+                                <p class="card-text">Type: {{ device["type"] }}</p>
+                                <p class="card-text">Version: {{ device["version"] }}</p>
+                                <p class="card-text">Label: {{ device["label"] }}</p>
+                                <p class="card-text">Created At: {{ device["created_time"] }}</p>
+                                <div class="collapse" id="details-{{ device['id'].id }}">
+                                    {% for attr in device_attributes %}
+                                        {% if attr not in ["id", "type", "version", "label", "created_time"] %}
+                                            {% if attr == "additional_info" and device[attr] is not none %}
+                                                {% for key, value in device[attr].items() %}
+                                                    <p class="card-text">{{ key|capitalize }}: {{ value }}</p>
+                                                {% endfor %}
+                                            {% else %}
+                                                <p class="card-text">{{ attr|capitalize }}: {{ device[attr] }}</p>
                                             {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                    <a href="#details-{{ device['id'].id }}" class="btn btn-outline-primary mt-2" data-toggle="collapse" aria-expanded="false" aria-controls="details-{{ device['id'].id }}">View Details</a>
+                                        {% endif %}
+                                    {% endfor %}
                                 </div>
+                                <a href="#details-{{ device['id'].id }}" class="btn btn-outline-primary mt-2" data-toggle="collapse" aria-expanded="false" aria-controls="details-{{ device['id'].id }}">View Details</a>
                             </div>
                         </div>
-                        {% endfor %}
                     </div>
                     {% endfor %}
-                {% else %}
-                    <div class="card mr-3 bg-light border-secondary shadow-sm" style="min-width: 18rem;">
-                        <div class="card-body">
-                            <h5 class="card-title text-secondary">No Devices</h5>
-                            <p class="card-text">You have no devices. Please create a new device.</p>
-                            <a href="{{ url_for('main.create_device') }}" class="btn btn-outline-secondary">Create Device</a>
-                        </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="card mr-3 bg-light border-secondary shadow-sm" style="min-width: 18rem;">
+                    <div class="card-body">
+                        <h5 class="card-title text-secondary">No Devices</h5>
+                        <p class="card-text">You have no devices. Please create a new device.</p>
+                        <a href="{{ url_for('main.create_device') }}" class="btn btn-outline-secondary">Create Device</a>
                     </div>
-                {% endif %}
-            </div>
+                </div>
+            {% endif %}
         </div>
     </div>
-    {% endblock %}
-</body>
-</html>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- ...existing code... -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+{% endblock %}

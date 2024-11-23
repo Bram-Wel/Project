@@ -32,7 +32,7 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 _private_niggle = password  # Save the password in the private variable
                 return redirect(url_for('main.dashboard'))
             else:
-                flash('Invalid password or expired token')
+                flash('Invalid password or expired token', 'warning')
         return render_template('login.html', title='Login', form=form)
     
     @main.route('/logout')

@@ -3,6 +3,8 @@
 #define THINGSBOARD_ENABLE_PROGMEM 0
 #elif defined(ESP32) || defined(RASPBERRYPI_PICO) || defined(RASPBERRYPI_PICO_W)
 #include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <Preferences.h>
 #endif
 
 #ifndef LED_BUILTIN
@@ -14,6 +16,7 @@
 #include <Attribute_Request.h>
 #include <Shared_Attribute_Update.h>
 #include <ThingsBoard.h>
+#include "WiFiManager.h"
 
 constexpr char WIFI_SSID[] = "HUAWEI Y9 2019";
 constexpr char WIFI_PASSWORD[] = "12345678";
@@ -97,35 +100,6 @@ constexpr std::array<const char *, 2U> SHARED_ATTRIBUTES_LIST = {
 constexpr std::array<const char *, 1U> CLIENT_ATTRIBUTES_LIST = {
   LED_MODE_ATTR
 };
-
-/// @brief Initalizes WiFi connection,
-// will endlessly delay until a connection has been successfully established
-void InitWiFi() {
-  Serial.println("Connecting to AP ...");
-  // Attempting to establish a connection to the given WiFi network
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
-    // Delay 500ms until a connection has been succesfully established
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("Connected to AP");
-}
-
-/// @brief Reconnects the WiFi uses InitWiFi if the connection has been removed
-/// @return Returns true as soon as a connection has been established again
-const bool reconnect() {
-  // Check to ensure we aren't connected yet
-  const wl_status_t status = WiFi.status();
-  if (status == WL_CONNECTED) {
-    return true;
-  }
-
-  // If we aren't establish a new connection to the given WiFi network
-  InitWiFi();
-  return true;
-}
-
 
 /// @brief Processes function for RPC call "setLedMode"
 /// RPC_Data is a JSON variant, that can be queried using operator[]
@@ -225,13 +199,14 @@ void loop() {
   }
 
   if (!tb.connected()) {
-    // Connect to the ThingsBoard
     Serial.print("Connecting to: ");
     Serial.print(THINGSBOARD_SERVER);
     Serial.print(" with token ");
     Serial.println(TOKEN);
+
     if (!tb.connect(THINGSBOARD_SERVER, TOKEN, THINGSBOARD_PORT)) {
-      Serial.println("Failed to connect");
+      Serial.println("Failed to connect to ThingsBoard. Retrying in 5 seconds...");
+      delay(5000); // Retry after 5 seconds
       return;
     }
     // Sending a MAC address as an attribute

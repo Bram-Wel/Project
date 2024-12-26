@@ -11,11 +11,16 @@
 #define LED_BUILTIN 99
 #endif
 
+#ifndef COUNT_OF
+#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+#endif
+
 #include <Arduino_MQTT_Client.h>
 #include <Server_Side_RPC.h>
 #include <Attribute_Request.h>
 #include <Shared_Attribute_Update.h>
 #include <ThingsBoard.h>
+#include <DHTesp.h>
 #include "WiFiManager.h"
 
 constexpr char WIFI_SSID[] = "HUAWEI Y9 2019";
@@ -57,7 +62,7 @@ WiFiClient wifiClient;
 Arduino_MQTT_Client mqttClient(wifiClient);
 
 // Initialize used apis
-Server_Side_RPC<3U, 5U> rpc;
+Server_Side_RPC<4U, 5U> rpc;
 Attribute_Request<2U, MAX_ATTRIBUTES> attr_request;
 Shared_Attribute_Update<3U, MAX_ATTRIBUTES> shared_update;
 
@@ -101,6 +106,22 @@ constexpr std::array<const char *, 1U> CLIENT_ATTRIBUTES_LIST = {
   LED_MODE_ATTR
 };
 
+// Array of LEDs to be lit 1 by 1
+constexpr uint8_t leds_cycling[] = {25, 26, 32};
+// Array of LEDs controlled from ThingsBoard
+constexpr uint8_t leds_controlled[] = {19, 22, 21};
+
+// Create DHT Object
+DHTesp dht;
+// ESP32 Pin for quering DHT22
+constexpr uint8_t DHT_PIN = 22;
+
+// Variables for LED cycling and telemetry sending
+constexpr uint16_t quant = 10;
+uint32_t led_passed = 0;
+uint16_t led_delay = 1000;
+uint8_t current_led = 0;
+
 /// @brief Processes function for RPC call "setLedMode"
 /// RPC_Data is a JSON variant, that can be queried using operator[]
 /// See https://arduinojson.org/v5/api/jsonvariant/subscript/ for more details
@@ -130,14 +151,59 @@ void processSetLedMode(const JsonVariantConst &data, JsonDocument &response) {
   response.set(response_doc);
 }
 
+/// @brief Processes function for RPC call "setValue"
+/// @param data Data containing the rpc data that was called and its current value
+void processDelayChange(const JsonVariantConst &data, JsonDocument &response) {
+  Serial.println("Received the set delay RPC method");
 
-// Optional, keep subscribed shared attributes empty instead,
-// and the callback will be called for every shared attribute changed on the device,
-// instead of only the one that were entered instead
-const std::array<RPC_Callback, 1U> callbacks = {
-  RPC_Callback{ "setLedMode", processSetLedMode }
+  // Process data
+  led_delay = data;
+
+  Serial.print("Set new delay: ");
+  Serial.println(led_delay);
+
+  response.set(led_delay);
+}
+
+/// @brief Processes function for RPC call "getValue"
+/// @param data Data containing the rpc data that was called and its current value
+void processGetDelay(const JsonVariantConst &data, JsonDocument &response) {
+  Serial.println("Received the get value method");
+
+  int led_delay = 1000; // Example value, replace with actual variable if needed
+  response.set(led_delay);
+}
+
+/// @brief Processes function for RPC call "setGpioStatus"
+/// @param data Data containing the rpc data that was called and its current value
+void processSetGpioState(const JsonVariantConst &data, JsonDocument &response) {
+  Serial.println("Received the set GPIO RPC method");
+
+  int pin = data["pin"];
+  bool enabled = data["enabled"];
+
+  if (pin < COUNT_OF(leds_controlled)) {
+    Serial.print("Setting LED ");
+    Serial.print(pin);
+    Serial.print(" to state ");
+    Serial.println(enabled);
+
+    digitalWrite(leds_controlled[pin], enabled);
+  }
+
+  JsonObject responseObj = response.to<JsonObject>();
+  responseObj["pin"] = data["pin"];
+  responseObj["enabled"] = (bool)data["enabled"];
+  response.set(responseObj);
+}
+
+// RPC handlers
+const std::array<RPC_Callback, 4U> callbacks = {
+  RPC_Callback{ "setLedMode", processSetLedMode },
+  RPC_Callback{ "setValue", processDelayChange },
+  RPC_Callback{ "getValue", processGetDelay },
+  RPC_Callback{ "setGpioStatus", processSetGpioState }
 };
-
 
 /// @brief Update callback that will be called as soon as one of the provided shared attributes changes value,
 /// if none are provided we subscribe to any shared attribute change instead
@@ -187,12 +253,37 @@ void setup() {
   if (LED_BUILTIN != 99) {
     pinMode(LED_BUILTIN, OUTPUT);
   }
+
+  // Configure pins for leds_cycling and leds_control arrays
+  for (size_t i = 0; i < COUNT_OF(leds_cycling); ++i) {
+    pinMode(leds_cycling[i], OUTPUT);
+  }
+
+  for (size_t i = 0; i < COUNT_OF(leds_controlled); ++i) {
+    pinMode(leds_controlled[i], OUTPUT);
+  }
+
   delay(1000);
   InitWiFi();
+  // Initialize temperature sensor
+  dht.setup(DHT_PIN, DHTesp::DHT11);
 }
 
 void loop() {
-  delay(10);
+  // New loop logic for LED cycling and sending DHT22 data
+  delay(quant);
+
+  led_passed += quant;
+
+  // Check if next LED should be lit up
+  if (led_passed > led_delay) {
+    // Turn off current LED
+    digitalWrite(leds_cycling[current_led], LOW);
+    led_passed = 0;
+    current_led = current_led >= 2 ? 0 : (current_led + 1);
+    // Turn on next LED in a row
+    digitalWrite(leds_cycling[current_led], HIGH);
+  }
 
   if (!reconnect()) {
     return;
@@ -268,13 +359,23 @@ void loop() {
   // Sending telemetry every telemetrySendInterval time
   if (millis() - previousDataSend > telemetrySendInterval) {
     previousDataSend = millis();
-    tb.sendTelemetryData("temperature", random(10, 20));
+    // tb.sendTelemetryData("temperature", random(10, 20));
     tb.sendAttributeData("rssi", WiFi.RSSI());
     tb.sendAttributeData("channel", WiFi.channel());
     tb.sendAttributeData("bssid", WiFi.BSSIDstr().c_str());
     tb.sendAttributeData("localIp", WiFi.localIP().toString().c_str());
     tb.sendAttributeData("ssid", WiFi.SSID().c_str());
+
+    // Read temperature and humidity from DHT22 sensor
+    TempAndHumidity lastValues = dht.getTempAndHumidity();
+    if (isnan(lastValues.humidity) || isnan(lastValues.temperature)) {
+      Serial.println("Failed to read from DHT sensor!");
+    } else {
+      tb.sendTelemetryData("temperature", lastValues.temperature);
+      tb.sendTelemetryData("humidity", lastValues.humidity);
+    }
   }
 
+  // Process messages
   tb.loop();
 }

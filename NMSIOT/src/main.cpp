@@ -20,8 +20,8 @@
 #include <Attribute_Request.h>
 #include <Shared_Attribute_Update.h>
 #include <ThingsBoard.h>
-#include <DHTesp.h>
 #include "WiFiManager.h"
+#include "DHT.h"
 
 constexpr char WIFI_SSID[] = "HUAWEI Y9 2019";
 constexpr char WIFI_PASSWORD[] = "12345678";
@@ -110,11 +110,6 @@ constexpr std::array<const char *, 1U> CLIENT_ATTRIBUTES_LIST = {
 constexpr uint8_t leds_cycling[] = {25, 26, 32};
 // Array of LEDs controlled from ThingsBoard
 constexpr uint8_t leds_controlled[] = {19, 22, 21};
-
-// Create DHT Object
-DHTesp dht;
-// ESP32 Pin for quering DHT22
-constexpr uint8_t DHT_PIN = 22;
 
 // Variables for LED cycling and telemetry sending
 constexpr uint16_t quant = 10;
@@ -266,10 +261,22 @@ void setup() {
   delay(1000);
   InitWiFi();
   // Initialize temperature sensor
-  dht.setup(DHT_PIN, DHTesp::DHT11);
+  initTemp();
+
+  tasksEnabled = true;
 }
 
 void loop() {
+  if (!tasksEnabled) {
+    // Wait 2 seconds to let system settle down
+    delay(2000);
+    // Enable task that will read values from the DHT sensor
+    tasksEnabled = true;
+    if (tempTaskHandle != NULL) {
+      vTaskResume(tempTaskHandle);
+    }
+  }
+
   // New loop logic for LED cycling and sending DHT22 data
   delay(quant);
 
@@ -366,16 +373,18 @@ void loop() {
     tb.sendAttributeData("localIp", WiFi.localIP().toString().c_str());
     tb.sendAttributeData("ssid", WiFi.SSID().c_str());
 
-    // Read temperature and humidity from DHT22 sensor
-    TempAndHumidity lastValues = dht.getTempAndHumidity();
-    if (isnan(lastValues.humidity) || isnan(lastValues.temperature)) {
-      Serial.println("Failed to read from DHT sensor!");
-    } else {
-      tb.sendTelemetryData("temperature", lastValues.temperature);
-      tb.sendTelemetryData("humidity", lastValues.humidity);
-    }
+    // Send telemetry data for temperature, humidity, heat index, dew point, and comfort ratio
+    tb.sendTelemetryData("temperature", newValues.temperature);
+    tb.sendTelemetryData("humidity", newValues.humidity);
+    tb.sendTelemetryData("heatIndex", heatIndex);
+    tb.sendTelemetryData("dewPoint", dewPoint);
+    tb.sendTelemetryData("comfortRatio", cr);
+    tb.sendTelemetryData("comfortStatus", comfortStatus.c_str());
   }
 
   // Process messages
   tb.loop();
+
+  // Yield control to background tasks
+  yield();
 }

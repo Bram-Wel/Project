@@ -18,9 +18,9 @@ NMSIOT is a device firmware for the ESP32 board, designed to connect to a remote
     ```bash
     cd NMSIOT
     ```
-3. Install dependencies:
+3. Install dependencies using PlatformIO:
     ```bash
-    npm install
+    platformio run
     ```
 4. Build the source code and upload it to the ESP32 board using PlatformIO, Arduino IDE, or a similar tool.
 5. On first-time setup, connect to the device at IP address `192.168.4.1` to add WiFi credentials.

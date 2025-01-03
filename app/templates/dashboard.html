@@ -6,8 +6,12 @@
 
 <div class="container">
     <h1 class="mt-5">Dashboard</h1>
-    <a href="{{ url_for('main.create_user') }}" class="btn btn-primary mt-3">Create User</a>
-    <a href="{{ url_for('main.create_device') }}" class="btn btn-secondary mt-3 ml-2">Create Device</a>   
+    <div class="d-flex justify-content-end">
+        {% if "TENANT ADMIN" in current_user.role.replace('_', ' ').replace('-', ' ').replace('.', ' ') %}
+        <a href="{{ url_for('main.create_user') }}" class="btn btn-primary mt-3">Create User</a>
+        {% endif %}
+        <a href="{{ url_for('main.create_device') }}" class="btn btn-secondary mt-3 ml-2">Create Device</a>
+    </div>
     <div class="row mt-4">
         <div class="col-12">
             {% if devices %}
@@ -37,10 +41,58 @@
                                     {% endfor %}
                                 </div>
                                 <a href="#details-{{ device['id'].id }}" class="btn btn-outline-primary mt-2" data-toggle="collapse" aria-expanded="false" aria-controls="details-{{ device['id'].id }}">View Details</a>
+                                <button type="button" class="btn btn-info mt-2" data-toggle="modal" data-target="#modal-{{ device['id'].id }}" data-device-id="{{ device['id'].id }}">Interact</button>
                                 <form action="{{ url_for('main.delete_device') }}" method="post" class="mt-2">
                                     <input type="hidden" name="device_id" value="{{ device['id'].id }}">
                                     <button type="submit" class="btn btn-danger">Delete Device</button>
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal -->
+                    <div class="modal fade" id="modal-{{ device['id'].id }}" tabindex="-1" role="dialog" aria-labelledby="modalLabel-{{ device['id'].id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-lg" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="modalLabel-{{ device['id'].id }}">Interact with {{ device["name"] }}</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <!-- Real-time information and interaction form -->
+                                    <div id="realtime-info-{{ device['id'].id }}">
+                                        <!-- Real-time data will be loaded here via JavaScript -->
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="attribute-scope-{{ device['id'].id }}">Attribute Scope</label>
+                                        <select class="form-control" id="attribute-scope-{{ device['id'].id }}">
+                                            <option value="client">Client Attributes</option>
+                                            <option value="shared">Shared Attributes</option>
+                                            <option value="server">Server Attributes</option>
+                                        </select>
+                                    </div>
+                                    <div id="attributes-{{ device['id'].id }}">
+                                        <!-- Attributes will be loaded here via JavaScript -->
+                                    </div>
+                                    <form id="command-form-{{ device['id'].id }}">
+                                        <div class="form-group">
+                                            <label for="command">Send Command</label>
+                                            <div id="command-editor-{{ device['id'].id }}" class="form-control" style="height: 150px; background-color: #2b2b2b; color: #f8f8f2;"></div>
+                                            <textarea id="command" name="command" style="display:none;"></textarea>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="common-commands">Common Commands</label>
+                                            <select class="form-control" id="common-commands-{{ device['id'].id }}">
+                                                <option value="">Select a command</option>
+                                                <option value="shutdown">Shutdown</option>
+                                                <option value="reboot">Reboot</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Send</button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -63,7 +115,137 @@
 
 {% block scripts %}
 <!-- ...existing code... -->
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js"></script>
+<script>
+    $(document).ready(function() {
+
+        var deviceId = null, intervalId = null, modal;
+        // Initialize Ace editor for each command editor
+        $('[id^="command-editor-"]').each(function() {
+            var editorId = $(this).attr('id');
+            var editor = ace.edit(editorId);
+            editor.setTheme("ace/theme/monokai");
+            editor.session.setMode("ace/mode/sh");
+            editor.setOptions({
+                enableBasicAutocompletion: true,
+                enableSnippets: true,
+                enableLiveAutocompletion: true,
+                fontSize: "14px"
+            });
+            editor.session.on('change', function() {
+                var textareaId = editorId.replace('editor', 'textarea');
+                $('#' + textareaId).val(editor.getValue());
+            });
+        });
+
+        // Function to fetch and update real-time data
+        function fetchRealTimeData(deviceId, modal) {
+            if (!modal.is(':visible')) return;
+            $.ajax({
+                url: '/get_device_data/' + deviceId,
+                method: 'GET',
+                success: function(data) {
+                    var telemetryHtml = '<h5>Telemetry Data</h5><table class="table table-striped"><thead><tr><th>Timestamp</th><th>Key</th><th>Value</th></tr></thead><tbody>';
+                    for (var key in data.telemetry) {
+                        data.telemetry[key].forEach(function(entry) {
+                            var date = new Date(entry.ts);
+                            telemetryHtml += '<tr><td>' + date.toLocaleString() + '</td><td>' + key + '</td><td>' + entry.value + '</td></tr>';
+                        });
+                    }
+                    telemetryHtml += '</tbody></table>';
+                    modal.find('#realtime-info-' + deviceId).html(telemetryHtml);
+
+                    var attributesHtml = '<h5>Attributes</h5><table class="table table-striped"><thead><tr><th>Timestamp</th><th>Key</th><th>Value</th></tr></thead><tbody>';
+                    var scope = $('#attribute-scope-' + deviceId).val();
+                    var attributes = data[scope + '_attributes'];
+                    attributes.forEach(function(attribute) {
+                        var date = new Date(attribute.lastUpdateTs);
+                        attributesHtml += '<tr><td>' + date.toLocaleString() + '</td><td>' + attribute.key + '</td><td>' + attribute.value + '</td></tr>';
+                    });
+                    attributesHtml += '</tbody></table>';
+                    modal.find('#attributes-' + deviceId).html(attributesHtml);
+
+                    // Store the data for later use
+                    modal.data('device-data', data);
+                },
+                error: function() {
+                    modal.find('#realtime-info-' + deviceId).html('<p>Error loading data</p>');
+                    modal.find('#attributes-' + deviceId).html('<p>Error loading data</p>');
+                }
+            });
+        }
+        
+        // JavaScript to handle real-time data fetching and command sending
+        $('.modal').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            deviceId = button.data('device-id');
+            modal = $(this);
+        });
+
+        $('.modal').on('shown.bs.modal', function() {
+            if (!intervalId) {
+                intervalId = setInterval(function() {
+                    fetchRealTimeData(deviceId, modal);
+                }, 2000);
+            }
+        });
+
+        $('.modal').on('hidden.bs.modal', function() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            // Reload the page when the modal is hidden
+            location.reload();
+        });
+
+        $('select[id^="attribute-scope-"]').on('change', function() {
+            var deviceId = $(this).attr('id').split('-')[2];
+            var scope = $(this).val();
+            var modal = $('#modal-' + deviceId);
+            var data = modal.data('device-data');
+            var attributesHtml = '<h5>Attributes</h5><table class="table table-striped"><thead><tr><th>Timestamp</th><th>Key</th><th>Value</th></tr></thead><tbody>';
+            var attributes = data[scope + '_attributes'];
+            attributes.forEach(function(attribute) {
+                var date = new Date(attribute.lastUpdateTs);
+                attributesHtml += '<tr><td>' + date.toLocaleString() + '</td><td>' + attribute.key + '</td><td>' + attribute.value + '</td></tr>';
+            });
+            attributesHtml += '</tbody></table>';
+            modal.find('#attributes-' + deviceId).html(attributesHtml);
+        });
+
+        $('form[id^="command-form-"]').on('submit', function(event) {
+            event.preventDefault();
+            var form = $(this);
+            var deviceId = form.attr('id').split('-')[2];
+            var command = form.find('textarea[name="command"]').val();
+            // Send command to the device
+            $.ajax({
+                url: '/send_command/' + deviceId,
+                method: 'POST',
+                data: { command: command },
+                success: function(response) {
+                    alert('Command sent successfully');
+                },
+                error: function(response) {
+                    alert('Failed to send command');
+                }
+            });
+        });
+
+        $('select[id^="common-commands-"]').on('change', function() {
+            var select = $(this);
+            var command = select.val();
+            if (command) {
+                var deviceId = select.attr('id').split('-')[2];
+                var editor = ace.edit('command-editor-' + deviceId);
+                editor.setValue(command);
+            }
+        });
+    });
+</script>
 {% endblock %}

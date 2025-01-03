@@ -189,6 +189,48 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
             flash('Device ID not provided', 'danger')
         return redirect(url_for('main.dashboard'))
 
+    @main.route('/get_device_data/<device_id>', methods=['GET'])
+    @login_required
+    def get_device_data(device_id):
+        try:
+            user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+            telemetry_data = client.telemetry_controller.get_latest_timeseries_using_get('DEVICE', device_id)
+            client_attributes = client.telemetry_controller.get_attributes_by_scope_using_get('DEVICE', device_id, 'CLIENT_SCOPE')
+            shared_attributes = client.telemetry_controller.get_attributes_by_scope_using_get('DEVICE', device_id, 'SHARED_SCOPE')
+            server_attributes = client.telemetry_controller.get_attributes_by_scope_using_get('DEVICE', device_id, 'SERVER_SCOPE')
+            client.logout()
+            return jsonify({
+                'telemetry': telemetry_data,
+                'client_attributes': client_attributes,
+                'shared_attributes': shared_attributes,
+                'server_attributes': server_attributes
+            })
+        except ApiException as e:
+            error_body = e.body.decode('utf-8')
+            error_details = json.loads(error_body)
+            return jsonify({"error": error_details.get('message')}), 500
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @main.route('/send_command/<device_id>', methods=['POST'])
+    @login_required
+    def send_command(device_id):
+        command = request.form.get('command')
+        if command:
+            try:
+                user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+                client.send_command(device_id, command)
+                client.logout()
+                return jsonify({"message": "Command sent successfully"}), 200
+            except ApiException as e:
+                error_body = e.body.decode('utf-8')
+                error_details = json.loads(error_body)
+                return jsonify({"error": error_details.get('message')}), 500
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        else:
+            return jsonify({"error": "Command not provided"}), 400
+
  # Get the niggle   
 def get_private_niggle():
     return _private_niggle

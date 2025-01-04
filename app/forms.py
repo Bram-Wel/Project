@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
+from wtforms import StringField, PasswordField, SubmitField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError
 
 class LoginForm(FlaskForm):
@@ -21,10 +21,14 @@ class DeviceForm(FlaskForm):
 class CreateUserForm(FlaskForm):
     id = StringField('ID', validators=[DataRequired(), Length(min=1, max=64)])
     username = StringField('Username', validators=[DataRequired(), Length(min=1, max=64)])
-    role = StringField('Role', validators=[DataRequired(), Length(min=1, max=64)])
+    title = StringField('Title', validators=[Length(max=64)], render_kw={"placeholder": "Organisation"})
+    role = SelectField('Role', choices=[('CUSTOMER_USER', 'Customer User'), ('CUSTOMER_ADMIN', 'Customer Admin')], validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
     submit = SubmitField('Create User')
 
-    def validate_role(self, field):
-        if field.data.upper() not in ["CUSTOMER_ADMIN", "CUSTOMER_USER"]:
-            raise ValidationError("Invalid role. Must be CUSTOMER_ADMIN or CUSTOMER_USER")
+    def validate(self):
+        if not super().validate():
+            return False
+        if not self.title.data:
+            self.title.data = self.username.data
+        return True

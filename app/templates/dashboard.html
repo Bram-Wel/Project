@@ -92,6 +92,29 @@
                                         </div>
                                         <button type="submit" class="btn btn-primary">Send</button>
                                     </form>
+                                    <hr>
+                                    <h5>Create Alarm</h5>
+                                    <form id="alarm-form-{{ device['id'].id }}">
+                                        <div class="form-group">
+                                            <label for="alarm-type-{{ device['id'].id }}">Alarm Type</label>
+                                            <input type="text" class="form-control" id="alarm-type-{{ device['id'].id }}" name="alarm_type" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="alarm-severity-{{ device['id'].id }}">Severity</label>
+                                            <select class="form-control" id="alarm-severity-{{ device['id'].id }}" name="severity" required>
+                                                <option value="CRITICAL">Critical</option>
+                                                <option value="MAJOR">Major</option>
+                                                <option value="MINOR">Minor</option>
+                                                <option value="WARNING">Warning</option>
+                                                <option value="INDETERMINATE">Indeterminate</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="alarm-details-{{ device['id'].id }}">Details</label>
+                                            <textarea class="form-control" id="alarm-details-{{ device['id'].id }}" name="details"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Create Alarm</button>
+                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -245,6 +268,31 @@
                 var editor = ace.edit('command-editor-' + deviceId);
                 editor.setValue(command);
             }
+        });
+
+        $('form[id^="alarm-form-"]').on('submit', function(event) {
+            event.preventDefault();
+            var form = $(this);
+            var deviceId = form.attr('id').split('-')[2];
+            var alarmType = form.find('input[name="alarm_type"]').val();
+            var severity = form.find('select[name="severity"]').val();
+            var details = form.find('textarea[name="details"]').val();
+            // Send alarm creation request
+            $.ajax({
+                url: '/create_alarm/' + deviceId,
+                method: 'POST',
+                data: {
+                    alarm_type: alarmType,
+                    severity: severity,
+                    details: details
+                },
+                success: function(response) {
+                    alert('Alarm created successfully');
+                },
+                error: function(response) {
+                    alert('Failed to create alarm');
+                }
+            });
         });
     });
 </script>

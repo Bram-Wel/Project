@@ -1,13 +1,15 @@
 # app/routes.py
+import logging
 from flask import Blueprint, request, jsonify, url_for, redirect, flash, render_template
 from flask_login import login_user, logout_user, login_required, current_user
 import json
-from tb_rest_client.rest_client_pe import Device
+from tb_rest_client.rest_client_pe import Device, DeviceProfile, DeviceProfileData, Customer, User as TbUser, ActivateUserRequest
 from tb_rest_client.rest import ApiException
 from app.main import get_rest_client, get_user_tb_v2, BRAM
 from app.forms import LoginForm, DeviceForm, CreateUserForm
 from app.models import User
 from datetime import datetime
+import re
 
 main = Blueprint('main', __name__)
 
@@ -33,6 +35,11 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 return redirect(url_for('main.dashboard'))
             else:
                 flash('Invalid password or expired token', 'warning')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Error in {getattr(form, field).label.text}: {error}", 'info')
+            
         return render_template('login.html', title='Login', form=form)
     
     @main.route('/logout')
@@ -59,6 +66,16 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 device_user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
                 if data['type'] == 'default':
                     data['device_profile_id'] = client.get_default_device_profile_info().id
+                else:
+                    default = {'type': 'DEFAULT'}
+                    device_profile = DeviceProfile(name=data['type'],
+                                                   profile_data=DeviceProfileData(configuration=default,
+                                                                                  transport_configuration=default),
+                                                                                  type=default['type'],
+                                                                                  transport_type=default['type'])
+                    device_profile = client.save_device_profile(device_profile)
+                    data['device_profile_id'] = device_profile.id
+
                 device = Device(
                     name=data['name'],
                     type=data['type'],
@@ -93,7 +110,7 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
         try:
             user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
             devices = []
-            page_data = client.get_user_devices(30, 0)
+            page_data = client.get_all_device_infos(30, 0)
             devices.extend(page_data.data)
             while page_data.has_next:
                 page_size, page = 30, 1
@@ -131,42 +148,57 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
         form = CreateUserForm()
         if form.validate_on_submit():
             role = form.role.data.upper()
-            user = User(
-                id=form.id.data,
-                username=form.username.data,
-                role=role,
-                password=form.password.data
-            )
-
-            try:
-                user.save_to_db()
-            except Exception as e:
-                return jsonify({"error": str(e)}), 400
-
+            customer = Customer(title=form.title.data)
+            tb_user = {
+                "name": form.username.data,
+                "authority": role,
+                "email": form.username.data
+                #"password": form.password.data
+                }
             with get_rest_client(username=BRAM['email'], password=BRAM['password']) as rest_client:
                 try:
-                    if role == "CUSTOMER_ADMIN":
-                        customer = {
-                            "title": form.username.data,
-                            "name": form.username.data
-                        }
-                        created_customer = rest_client.save_customer(customer)
-                        customer_id = created_customer.id.id
+                    customer = rest_client.save_customer(body=customer)
+                    # Fetch the automatically created "Customer Administrators" Group.
+                    customer_admin = rest_client.get_entity_group_by_owner_and_name_and_type(
+                        customer.id,
+                        'USER',
+                        'Customer Administrators'
+                        )
+                    tb_user['customer_id'] = customer.id
+
+                    tb_user = TbUser(**tb_user)
+                    tb_user = rest_client.save_user(tb_user, send_activation_mail=False)
+                    activation_link = rest_client.get_activation_link(tb_user.id)
+                    match = re.search(r'activateToken=([a-zA-Z0-9_-]+)', activation_link)
+                    if match:
+                        activation_token = match.group(1)
                     else:
-                        customer_id = None
+                        raise Exception("Failed to get activation token")
+                    jwt_token = rest_client.activate_user(
+                        body=ActivateUserRequest(
+                            activate_token=activation_token, 
+                            password=form.password.data
+                        ), 
+                        send_activation_mail=False
+                    )
+                    rest_client.add_entities_to_entity_group(customer_admin.id, [tb_user.id.id])
 
-                    tb_user = {
-                        "name": form.username.data,
-                        "authority": role,
-                        "email": f"{form.username.data}@example.com",
-                        "password": form.password.data,
-                        "customerId": {"id": customer_id} if customer_id else None
-                    }
-                    rest_client.save_user(tb_user)
+                    # create the local copy of user to login
+                    user = User(
+                        username=form.username.data,
+                        password=form.password.data
+                    )
+                    user.save_to_db()
                 except ApiException as e:
-                    return jsonify({"error": "Failed to create user in ThingsBoard"}), 500
-
-            return jsonify({"message": "User created successfully"}), 201
+                    flash("Failed to create user in ThingsBoard", 'error')
+                except Exception as e:
+                    flash(str(e), 'error')
+                else:
+                    flash("User created successfully", 'success')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Error in {getattr(form, field).label.text}: {error}", 'info')
 
         return render_template('create_user.html', title='Create User', form=form)
 
@@ -230,6 +262,40 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 return jsonify({"error": str(e)}), 500
         else:
             return jsonify({"error": "Command not provided"}), 400
+
+    @main.route('/create_alarm/<device_id>', methods=['POST'])
+    @login_required
+    def create_alarm(device_id):
+        alarm_type = request.form.get('alarm_type')
+        severity = request.form.get('severity')
+        details = request.form.get('details')
+        if alarm_type and severity:
+            try:
+                user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+                alarm = {
+                    "type": alarm_type,
+                    "severity": severity,
+                    "details": details,
+                    "originator": {
+                        "entityType": "DEVICE",
+                        "id": device_id
+                    }
+                }
+                client.save_alarm(alarm)
+                client.logout()
+                flash('Alarm created successfully', 'success')
+                return redirect(url_for('main.dashboard'))
+            except ApiException as e:
+                error_body = e.body.decode('utf-8')
+                error_details = json.loads(error_body)
+                flash(f"Error: {error_details.get('message')}", 'error')
+                return redirect(url_for('main.dashboard'))
+            except Exception as e:
+                flash(f"Error: {str(e)}", 'error')
+                return redirect(url_for('main.dashboard'))
+        else:
+            flash('Alarm type and severity are required', 'warning')
+            return redirect(url_for('main.dashboard'))
 
  # Get the niggle   
 def get_private_niggle():

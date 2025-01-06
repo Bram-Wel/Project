@@ -16,10 +16,10 @@ class DeviceForm(FlaskForm):
 
     def __init__(self, formdata, **kwargs):
         super().__init__(formdata, **kwargs)
-        self.device_type.data = 'default'
+        if not self.device_type.data:
+            self.device_type.data = 'default'
 
 class CreateUserForm(FlaskForm):
-    id = StringField('ID', validators=[DataRequired(), Length(min=1, max=64)])
     username = StringField('Username', validators=[DataRequired(), Length(min=1, max=64)])
     title = StringField('Title', validators=[Length(max=64)], render_kw={"placeholder": "Organisation"})
     role = SelectField('Role', choices=[('CUSTOMER_USER', 'Customer User'), ('CUSTOMER_ADMIN', 'Customer Admin')], validators=[DataRequired()])

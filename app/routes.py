@@ -260,11 +260,20 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
     @main.route('/send_command/<device_id>', methods=['POST'])
     @login_required
     def send_command(device_id):
-        command = request.form.get('command')
-        if command:
+        method = request.form.get('method')
+        params = request.form.get('params')
+        timeout = request.form.get('timeout')
+        if method and params:
             try:
+                params = json.loads(params)  # Convert params to JSON
                 user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
-                client.send_command(device_id, command)
+                body = {
+                    'method': method,
+                    'params': params
+                }
+                if timeout:
+                    body['timeout'] = int(timeout)
+                client.rpc_v2_controller.handle_one_way_device_rpc_request_using_post1(device_id, body=body)
                 client.logout()
                 return jsonify({"message": "Command sent successfully"}), 200
             except ApiException as e:
@@ -272,9 +281,10 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 error_details = json.loads(error_body)
                 return jsonify({"error": error_details.get('message')}), 500
             except Exception as e:
+                logging.debug(f'Error: {e}')
                 return jsonify({"error": str(e)}), 500
         else:
-            return jsonify({"error": "Command not provided"}), 400
+            return jsonify({"error": "Method and params are required"}), 400
 
     @main.route('/create_alarm/<device_id>', methods=['POST'])
     @login_required

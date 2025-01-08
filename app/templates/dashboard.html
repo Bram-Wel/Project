@@ -89,19 +89,18 @@
                                     </div>
                                     <form id="command-form-{{ device['id'].id }}">
                                         <div class="form-group">
-                                            <label for="command">Send Command</label>
-                                            <div id="command-editor-{{ device['id'].id }}" class="form-control" style="height: 150px; background-color: #2b2b2b; color: #f8f8f2;"></div>
-                                            <textarea id="command" name="command" style="display:none;"></textarea>
+                                            <label for="method">Method</label>
+                                            <input type="text" class="form-control" id="method" name="method" required>
                                         </div>
                                         <div class="form-group">
-                                            <label for="common-commands">Common Commands</label>
-                                            <select class="form-control" id="common-commands-{{ device['id'].id }}">
-                                                <option value="">Select a command</option>
-                                                <option value="shutdown">Shutdown</option>
-                                                <option value="reboot">Reboot</option>
-                                            </select>
+                                            <label for="params">Parameters</label>
+                                            <textarea class="form-control" id="params" name="params" required></textarea>
                                         </div>
-                                        <button type="submit" class="btn btn-primary">Send</button>
+                                        <div class="form-group">
+                                            <label for="timeout">Timeout (optional)</label>
+                                            <input type="number" class="form-control" id="timeout" name="timeout">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Send Command</button>
                                     </form>
                                     <hr>
                                     <h5>Create Alarm</h5>
@@ -286,13 +285,15 @@
         $('form[id^="command-form-"]').on('submit', function(event) {
             event.preventDefault();
             var form = $(this);
-            var deviceId = form.attr('id').split('-')[2];
-            var command = form.find('textarea[name="command"]').val();
+            //var deviceId = form.attr('id').split('-')[2];
+            var method = form.find('input[name="method"]').val();
+            var params = form.find('textarea[name="params"]').val();
+            var timeout = form.find('input[name="timeout"]').val();
             // Send command to the device
             $.ajax({
                 url: '/send_command/' + deviceId,
                 method: 'POST',
-                data: { command: command },
+                data: { method: method, params: params, timeout: timeout },
                 success: function(response) {
                     alert('Command sent successfully');
                 },
@@ -306,7 +307,7 @@
             var select = $(this);
             var command = select.val();
             if (command) {
-                var deviceId = select.attr('id').split('-')[2];
+                //var deviceId = select.attr('id').split('-')[2];
                 var editor = ace.edit('command-editor-' + deviceId);
                 editor.setValue(command);
             }

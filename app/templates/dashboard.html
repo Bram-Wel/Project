@@ -14,6 +14,17 @@
     </div>
     <div class="row mt-4">
         <div class="col-12">
+            <div class="alert alert-info">
+                <h4>Notifications</h4>
+                <ul id="notification-list">
+                    {% for notification in notifications %}
+                    <li>
+                        <strong>{{ notification.subject }}</strong>: {{ notification.text }}
+                        <button class="btn btn-sm btn-primary" onclick="markAsRead('{{ notification.id.id }}')">Mark as Read</button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
             {% if devices %}
                 {% for chunk in devices %}
                 <div class="row">
@@ -144,6 +155,37 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js"></script>
 <script>
+    function fetchNotifications() {
+        fetch("{{ url_for('main.fetch_notifications') }}")
+            .then(response => response.json())
+            .then(data => {
+                var notificationList = document.getElementById('notification-list');
+                notificationList.innerHTML = '';
+                data.forEach(function(notification) {
+                    var li = document.createElement('li');
+                    li.innerHTML = '<strong>' + notification.subject + '</strong>: ' + notification.text +
+                                   ' <button class="btn btn-sm btn-primary" onclick="markAsRead(\'' + notification.id.id + '\')">Mark as Read</button>';
+                    notificationList.appendChild(li);
+                });
+            })
+            .catch(error => console.error('Error fetching notifications:', error));
+    }
+
+    function markAsRead(notificationId) {
+        fetch("{{ url_for('main.mark_notification_as_read', notification_id='') }}" + notificationId, {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                fetchNotifications();
+            } else {
+                console.error('Error marking notification as read:', data.error);
+            }
+        })
+        .catch(error => console.error('Error marking notification as read:', error));
+    }
+
     $(document).ready(function() {
 
         var deviceId = null, intervalId = null, modal;
@@ -294,6 +336,11 @@
                 }
             });
         });
+
+        // Poll for notifications every 30 seconds
+        setInterval(fetchNotifications, 30000);
+        // Fetch notifications on page load
+        fetchNotifications();
     });
 </script>
 {% endblock %}

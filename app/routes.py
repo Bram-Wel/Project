@@ -17,6 +17,7 @@ main = Blueprint('main', __name__)
 _private_niggle = None
 
 with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
+ 
     @main.route('/')
     @main.route('/login', methods=['GET', 'POST'])
     def login():
@@ -118,6 +119,11 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
                 devices.extend(page_data.data)
                 page += 1
 
+            notifications = client.notification_controller.get_notifications_using_get(
+                30,
+                0,
+                unread_only=True, 
+                ).data
             client.logout()
             chunked_devices = list(chunk_list(devices, 3))
             if devices:
@@ -133,7 +139,14 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
             for device in devices:
                 timestamp_seconds = device.created_time / 1000.0
                 device.created_time = datetime.fromtimestamp(timestamp_seconds)
-            return render_template('dashboard.html', title='Dashboard', devices=chunked_devices, user=user, device_attributes=device_attributes)
+            return render_template(
+                'dashboard.html',
+                title='Dashboard',
+                devices=chunked_devices,
+                user=user,
+                device_attributes=device_attributes,
+                notifications=notifications,
+                )
         except ApiException as e:
             error_body = e.body.decode('utf-8')
             error_details = json.loads(error_body)
@@ -296,6 +309,42 @@ with get_rest_client(BRAM['email'], BRAM['password']) as rest_client:
         else:
             flash('Alarm type and severity are required', 'warning')
             return redirect(url_for('main.dashboard'))
+
+    @main.route('/fetch_notifications')
+    @login_required
+    def fetch_notifications():
+        try:
+            user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+            notifications_future = client.notification_controller.get_notifications_using_get(
+                30,
+                0,
+                unread_only=True,
+                async_req=True
+            )
+            notifications = notifications_future.get().data
+            client.logout()
+            return jsonify([n.to_dict() for n in notifications])
+        except ApiException as e:
+            error_body = e.body.decode('utf-8')
+            error_details = json.loads(error_body)
+            return jsonify({'error': error_details.get('message')}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @main.route('/mark_notification_as_read/<notification_id>', methods=['GET'])
+    @login_required
+    def mark_notification_as_read(notification_id):
+        try:
+            user, client = get_user_tb_v2(current_user.username, get_private_niggle(), True)
+            client.notification_controller.mark_notification_as_read_using_put(notification_id)
+            client.logout()
+            return jsonify({'status': 'success'})
+        except ApiException as e:
+            error_body = e.body.decode('utf-8')
+            error_details = json.loads(error_body)
+            return jsonify({'error': error_details.get('message')}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
  # Get the niggle   
 def get_private_niggle():

@@ -107,9 +107,9 @@ constexpr std::array<const char *, 1U> CLIENT_ATTRIBUTES_LIST = {
 };
 
 // Array of LEDs to be lit 1 by 1
-constexpr uint8_t leds_cycling[] = {4, 16, 17};
+constexpr uint8_t leds_cycling[] = {18, 19, 21};
 // Array of LEDs controlled from ThingsBoard
-constexpr uint8_t leds_controlled[] = {18, 19, 21};
+constexpr uint8_t leds_controlled[] = {4, 23};
 
 // Variables for LED cycling and telemetry sending
 constexpr uint16_t quant = 10;
